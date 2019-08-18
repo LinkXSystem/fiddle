@@ -1,4 +1,5 @@
 import * as React from 'react';
+// TODO: https://github.com/nomcopter/react-mosaic
 import { Mosaic, MosaicNode } from 'react-mosaic-component';
 
 import { AppState } from '../state';

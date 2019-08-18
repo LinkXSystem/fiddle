@@ -44,6 +44,7 @@ export interface EditorsState {
   monacoOptions: MonacoType.editor.IEditorOptions;
 }
 
+// TODO: Code of Program , Yes !!!
 @observer
 export class Editors extends React.Component<EditorsProps, EditorsState> {
   // A reaction: Each time mosaicArrangement is changed, we'll update
