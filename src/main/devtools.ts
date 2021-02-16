@@ -7,12 +7,12 @@ import { isDevMode } from '../utils/devmode';
  * @returns {Promise<void>}
  */
 export async function setupDevTools(): Promise<void> {
-  if (!isDevMode) return;
+  if (!isDevMode()) return;
 
   const {
     default: installExtension,
     REACT_DEVELOPER_TOOLS,
-    REACT_PERF
+    REACT_PERF,
   } = require('electron-devtools-installer');
 
   try {

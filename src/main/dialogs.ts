@@ -1,4 +1,4 @@
-import { dialog } from 'electron';
+import { dialog, IpcMainEvent } from 'electron';
 import { IpcEvents } from '../ipc-events';
 import { ipcMainManager } from './ipc';
 import { getOrCreateMainWindow } from './windows';
@@ -17,6 +17,12 @@ export function setupDialogs() {
     showConfirmationDialog(args);
   });
 
+  ipcMainManager.on(
+    IpcEvents.SHOW_LOCAL_VERSION_FOLDER_DIALOG,
+    async (event) => {
+      await showOpenDialog(event);
+    },
+  );
 }
 
 /**
@@ -27,7 +33,7 @@ export function setupDialogs() {
 function showWarningDialog(args: Electron.MessageBoxOptions) {
   dialog.showMessageBox(getOrCreateMainWindow(), {
     type: 'warning',
-    ...args
+    ...args,
   });
 }
 
@@ -39,6 +45,19 @@ function showWarningDialog(args: Electron.MessageBoxOptions) {
 function showConfirmationDialog(args: Electron.MessageBoxOptions) {
   dialog.showMessageBox(getOrCreateMainWindow(), {
     type: 'warning',
-    ...args
+    ...args,
   });
+}
+
+async function showOpenDialog(event: IpcMainEvent) {
+  const { filePaths } = await dialog.showOpenDialog({
+    title: 'Open Folder',
+    properties: ['openDirectory'],
+  });
+
+  if (!filePaths || filePaths.length < 1) {
+    return;
+  }
+
+  event.reply(IpcEvents.LOAD_LOCAL_VERSION_FOLDER, [filePaths[0]]);
 }

@@ -1,8 +1,8 @@
+import { autorun } from 'mobx';
 import { observer } from 'mobx-react';
 import * as React from 'react';
-
-import { autorun } from 'mobx';
 import { MosaicContext } from 'react-mosaic-component';
+
 import { OutputEntry } from '../../interfaces';
 import { AppState } from '../state';
 import { WrapperMosaicId } from './output-editors-wrapper';
@@ -18,10 +18,10 @@ export interface CommandsProps {
  * whenever a Fiddle is launched in Electron.
  *
  * @class Output
- * @extends {React.Component<CommandsProps, {}>}
+ * @extends {React.Component<CommandsProps>}
  */
 @observer
-export class Output extends React.Component<CommandsProps, {}> {
+export class Output extends React.Component<CommandsProps> {
   public static contextType = MosaicContext;
   public context: MosaicContext<WrapperMosaicId>;
   private outputRef = React.createRef<HTMLDivElement>();
@@ -33,14 +33,13 @@ export class Output extends React.Component<CommandsProps, {}> {
     this.renderEntry = this.renderEntry.bind(this);
   }
 
-
   public componentDidMount() {
     autorun(() => {
+      const { isConsoleShowing } = this.props.appState;
+
       // this context should always exist, but mocking context in enzyme
       // is not fully supported, so this condition makes the tests pass
       if (this.context.mosaicActions && this.context.mosaicActions.expand) {
-        const { isConsoleShowing } = this.props.appState;
-
         if (!isConsoleShowing) {
           this.context.mosaicActions.expand(['first'], 0);
         } else {
@@ -82,19 +81,28 @@ export class Output extends React.Component<CommandsProps, {}> {
    */
   public renderEntry(entry: OutputEntry, index: number): Array<JSX.Element> {
     const ts = this.renderTimestamp(entry.timestamp);
-    const timestamp = <span className='timestamp'>{ts}</span>;
+    const timestamp = <span className="timestamp">{ts}</span>;
     const lines = entry.text.split(/\r?\n/);
-    const style: React.CSSProperties = entry.isNotPre ? { whiteSpace: 'initial' } : {};
+    const style: React.CSSProperties = entry.isNotPre
+      ? { whiteSpace: 'initial' }
+      : {};
 
     return lines.map((text, lineIndex) => (
-      <p style={style} key={`${entry.timestamp}--${index}--${lineIndex}`}>
-        {timestamp}{text}
-      </p>
+      <div key={`${entry.timestamp}--${index}--${lineIndex}`}>
+        <span style={style} className="output-message">
+          {timestamp}
+          {text}
+        </span>
+      </div>
     ));
   }
 
-  public render() {
-    const { output } = this.props.appState;
+  public render(): JSX.Element | null {
+    const { output, isConsoleShowing } = this.props.appState;
+
+    if (!isConsoleShowing) {
+      return null;
+    }
 
     // The last 1000 lines
     const lines = output
@@ -102,7 +110,7 @@ export class Output extends React.Component<CommandsProps, {}> {
       .map(this.renderEntry);
 
     return (
-      <div className='output' ref={this.outputRef}>
+      <div className="output" ref={this.outputRef}>
         {lines}
       </div>
     );

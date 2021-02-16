@@ -1,7 +1,7 @@
 import { mount, shallow } from 'enzyme';
 import * as React from 'react';
 
-import { ElectronVersionSource, ElectronVersionState } from '../../../src/interfaces';
+import { VersionSource, VersionState } from '../../../src/interfaces';
 import { ElectronSettings } from '../../../src/renderer/components/settings-electron';
 import { ElectronReleaseChannel } from '../../../src/renderer/versions';
 import { mockVersions } from '../../mocks/electron-versions';
@@ -13,12 +13,15 @@ describe('ElectronSettings component', () => {
     store = {
       version: '2.0.1',
       versions: { ...mockVersions },
-      versionsToShow: [ ElectronReleaseChannel.stable, ElectronReleaseChannel.beta ],
-      statesToShow: [ ElectronVersionState.ready, ElectronVersionState.downloading ],
+      channelsToShow: [
+        ElectronReleaseChannel.stable,
+        ElectronReleaseChannel.beta,
+      ],
+      statesToShow: [VersionState.ready, VersionState.downloading],
       downloadVersion: jest.fn(),
       removeVersion: jest.fn(),
       updateElectronVersions: jest.fn(),
-      toggleAddVersionDialog: jest.fn()
+      toggleAddVersionDialog: jest.fn(),
     };
 
     // Render all the states
@@ -29,15 +32,15 @@ describe('ElectronSettings component', () => {
 
   it('renders', () => {
     store.versions['3.0.0-nightly.1'] = {
-      state: ElectronVersionState.ready,
+      state: VersionState.ready,
       version: '3.0.0-nightly.1',
-      source: ElectronVersionSource.local
+      source: VersionSource.local,
     };
 
     store.versions['3.0.0'] = {
-      state: ElectronVersionState.ready,
+      state: VersionState.ready,
       version: '3.0.0',
-      source: ElectronVersionSource.local
+      source: VersionSource.local,
     };
 
     const wrapper = shallow(<ElectronSettings appState={store} />);
@@ -47,15 +50,15 @@ describe('ElectronSettings component', () => {
 
   it('handles removing a version', async () => {
     store.versions['3.0.0-nightly.1'] = {
-      state: ElectronVersionState.ready,
+      state: VersionState.ready,
       version: '3.0.0-nightly.1',
-      source: ElectronVersionSource.local
+      source: VersionSource.local,
     };
 
     store.versions['3.0.0'] = {
-      state: ElectronVersionState.ready,
+      state: VersionState.ready,
       version: '3.0.0',
-      source: ElectronVersionSource.local
+      source: VersionSource.local,
     };
 
     const wrapper = mount(<ElectronSettings appState={store} />);
@@ -71,13 +74,13 @@ describe('ElectronSettings component', () => {
   it('handles downloading a version', async () => {
     store.versions = {
       '3.0.0': {
-        state: ElectronVersionState.unknown,
+        state: VersionState.unknown,
         version: '3.0.0',
-        source: ElectronVersionSource.remote
-      }
+        source: VersionSource.remote,
+      },
     };
 
-    store.statesToShow.push(ElectronVersionState.unknown);
+    store.statesToShow.push(VersionState.unknown);
 
     const wrapper = mount(<ElectronSettings appState={store} />);
 
@@ -98,9 +101,7 @@ describe('ElectronSettings component', () => {
   });
 
   it('handles the downloadAll()', async () => {
-    const wrapper = shallow(
-      <ElectronSettings appState={store} />
-    );
+    const wrapper = shallow(<ElectronSettings appState={store} />);
     const instance = wrapper.instance() as any;
     await instance.handleDownloadAll();
 
@@ -109,9 +110,7 @@ describe('ElectronSettings component', () => {
 
   describe('handleDownloadClick()', () => {
     it('kicks off an update of Electron versions', async () => {
-      const wrapper = shallow(
-        <ElectronSettings appState={store} />
-      );
+      const wrapper = shallow(<ElectronSettings appState={store} />);
       const instance = wrapper.instance() as any;
       await instance.handleDownloadClick();
 
@@ -121,9 +120,7 @@ describe('ElectronSettings component', () => {
 
   describe('handleAddVersion()', () => {
     it('toggles the add version dialog', () => {
-      const wrapper = shallow(
-        <ElectronSettings appState={store} />
-      );
+      const wrapper = shallow(<ElectronSettings appState={store} />);
       const instance = wrapper.instance() as any;
       instance.handleAddVersion();
 
@@ -133,54 +130,50 @@ describe('ElectronSettings component', () => {
 
   describe('handleVersionChange()', () => {
     it('handles a new selection', async () => {
-      const wrapper = shallow(
-        <ElectronSettings appState={store} />
-      );
+      const wrapper = shallow(<ElectronSettings appState={store} />);
       const instance = wrapper.instance() as any;
       await instance.handleStateChange({
         currentTarget: {
-          id: ElectronVersionState.ready,
-          checked: false
-        }
+          id: VersionState.ready,
+          checked: false,
+        },
       });
 
       await instance.handleStateChange({
         currentTarget: {
-          id: ElectronVersionState.unknown,
-          checked: true
-        }
+          id: VersionState.unknown,
+          checked: true,
+        },
       });
 
       expect(store.statesToShow).toEqual([
-        ElectronVersionState.downloading,
-        ElectronVersionState.unknown
+        VersionState.downloading,
+        VersionState.unknown,
       ]);
     });
   });
 
   describe('handleChannelChange()', () => {
     it('handles a new selection', async () => {
-      const wrapper = shallow(
-        <ElectronSettings appState={store} />
-      );
+      const wrapper = shallow(<ElectronSettings appState={store} />);
       const instance = wrapper.instance() as any;
       await instance.handleChannelChange({
         currentTarget: {
           id: ElectronReleaseChannel.stable,
-          checked: false
-        }
+          checked: false,
+        },
       });
 
       await instance.handleChannelChange({
         currentTarget: {
           id: ElectronReleaseChannel.nightly,
-          checked: true
-        }
+          checked: true,
+        },
       });
 
-      expect(store.versionsToShow).toEqual([
+      expect(store.channelsToShow).toEqual([
         ElectronReleaseChannel.beta,
-        ElectronReleaseChannel.nightly
+        ElectronReleaseChannel.nightly,
       ]);
     });
   });

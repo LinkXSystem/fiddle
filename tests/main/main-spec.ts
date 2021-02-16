@@ -1,26 +1,40 @@
+/**
+ * @jest-environment node
+ */
+
 import { app } from 'electron';
 
-import { main, onBeforeQuit, onReady, onWindowsAllClosed } from '../../src/main/main';
+import { IpcEvents } from '../../src/ipc-events';
+import { ipcMainManager } from '../../src/main/ipc';
+import {
+  main,
+  onBeforeQuit,
+  onReady,
+  onWindowsAllClosed,
+  setupMenuHandler,
+} from '../../src/main/main';
 import { shouldQuit } from '../../src/main/squirrel';
 import { setupUpdates } from '../../src/main/update';
 import { getOrCreateMainWindow } from '../../src/main/windows';
-import { setupAboutPanel } from '../../src/utils/set-about-panel';
+import { setupAboutPanel } from '../../src/main/about-panel';
 
 jest.mock('../../src/main/windows', () => ({
-  getOrCreateMainWindow: jest.fn()
+  getOrCreateMainWindow: jest.fn(),
 }));
 
-jest.mock('../../src/utils/set-about-panel', () => ({
-  setupAboutPanel: jest.fn()
+jest.mock('../../src/main/about-panel', () => ({
+  setupAboutPanel: jest.fn(),
 }));
 
 jest.mock('../../src/main/update', () => ({
-  setupUpdates: jest.fn()
+  setupUpdates: jest.fn(),
 }));
 
 jest.mock('../../src/main/squirrel', () => ({
-  shouldQuit: jest.fn(() => false)
+  shouldQuit: jest.fn(() => false),
 }));
+
+jest.mock('../../src/main/ipc');
 
 /**
  * This test is very basic and some might say that it's
@@ -33,13 +47,13 @@ describe('main', () => {
 
   beforeAll(() => {
     Object.defineProperty(process, 'platform', {
-      value: 'win32'
+      value: 'win32',
     });
   });
 
   afterAll(() => {
     Object.defineProperty(process, 'platform', {
-      value: oldPlatform
+      value: oldPlatform,
     });
   });
 
@@ -53,16 +67,20 @@ describe('main', () => {
 
     it('listens to core events', () => {
       main();
-      expect(app.on).toHaveBeenCalledTimes(5);
+      expect(app.on).toHaveBeenCalledTimes(4);
     });
   });
 
   describe('onBeforeQuit()', () => {
-    it('sets a global', () => {
+    it('sets up IPC so app can quit if dialog confirmed', () => {
       onBeforeQuit();
-
-      expect((global as any).isQuitting).toBe(true);
-      (global as any).isQuitting = false;
+      expect(ipcMainManager.send).toHaveBeenCalledWith<any>(
+        IpcEvents.BEFORE_QUIT,
+      );
+      expect(ipcMainManager.on).toHaveBeenCalledWith<any>(
+        IpcEvents.CONFIRM_QUIT,
+        app.quit,
+      );
     });
   });
 
@@ -85,12 +103,23 @@ describe('main', () => {
 
     it('does not quit the app on macOS', () => {
       Object.defineProperty(process, 'platform', {
-        value: 'darwin'
+        value: 'darwin',
       });
 
       onWindowsAllClosed();
 
       expect(app.quit).toHaveBeenCalledTimes(0);
+    });
+  });
+
+  describe('setupMenuHandler()', () => {
+    it('check if listening on BLOCK_ACCELERATORS', () => {
+      setupMenuHandler();
+
+      expect(ipcMainManager.on).toHaveBeenCalledWith<any>(
+        IpcEvents.BLOCK_ACCELERATORS,
+        expect.anything(),
+      );
     });
   });
 });

@@ -10,20 +10,21 @@ import { MosaicId } from '../interfaces';
  * @returns {MosaicNode<MosaicId>}
  */
 export function createMosaicArrangement(
-  input: Array<MosaicId>, direction: MosaicDirection = 'row'
+  input: Array<MosaicId>,
+  direction: MosaicDirection = 'row',
 ): MosaicNode<MosaicId> {
   if (input.length === 1) {
     return input[0];
   }
 
   // This cuts out the first half of input. Input becomes the second half.
-  const secondHalf = [ ...input ];
+  const secondHalf = [...input];
   const firstHalf = secondHalf.splice(0, Math.floor(secondHalf.length / 2));
 
   return {
     direction,
     first: createMosaicArrangement(firstHalf, 'column'),
-    second: createMosaicArrangement(secondHalf, 'column')
+    second: createMosaicArrangement(secondHalf, 'column'),
   };
 }
 
@@ -34,20 +35,22 @@ export function createMosaicArrangement(
  * @param {MosaicNode<MosaicId> | null} input
  * @returns {Array<MosaicId>}
  */
-export function getVisibleMosaics(input: MosaicNode<MosaicId> | null): Array<MosaicId> {
+export function getVisibleMosaics(
+  input: MosaicNode<MosaicId> | null,
+): Array<MosaicId> {
   // Handle the unlikely null case
   if (!input) return [];
 
   // Handle the case where only one editor is visible
   if (typeof input === 'string') {
-    return [ input ];
+    return [input as MosaicId];
   }
 
   // Handle the other cases (2 - 4)
-  const result = [];
-  for (const node of [ input.first, input.second ]) {
+  const result: Array<MosaicId> = [];
+  for (const node of [input.first, input.second]) {
     if (typeof node === 'string') {
-      result.push(node);
+      result.push(node as MosaicId);
     } else {
       result.push(...getVisibleMosaics(node));
     }

@@ -2,6 +2,7 @@
   "compilerOptions": {
     "outDir": "./dist",
     "allowJs": true,
+    "skipLibCheck": true,
     "allowSyntheticDefaultImports": true,
     "experimentalDecorators": true,
     "removeComments": false,
@@ -9,7 +10,8 @@
     "sourceMap": true,
     "lib": [
       "es2017",
-      "dom"
+      "dom",
+      "WebWorker"
     ],
     "noImplicitAny": true,
     "noImplicitReturns": true,
@@ -34,7 +36,7 @@
     "src/**/*"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules/**/*"
   ],
   "formatCodeOptions": {
     "indentSize": 2,

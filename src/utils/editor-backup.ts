@@ -6,9 +6,9 @@ import { getEditorValue } from './editor-value';
 import { getEditorViewState } from './editor-viewstate';
 
 export interface EditorBackup {
-  value: string;
-  model: editor.ITextModel | null;
-  viewState: editor.ICodeEditorViewState | null;
+  value?: string;
+  model?: editor.ITextModel | null;
+  viewState?: editor.ICodeEditorViewState | null;
 }
 
 /**
@@ -21,6 +21,6 @@ export function getEditorBackup(id: EditorId): EditorBackup {
   return {
     value: getEditorValue(id),
     model: getEditorModel(id),
-    viewState: getEditorViewState(id)
+    viewState: getEditorViewState(id),
   };
 }

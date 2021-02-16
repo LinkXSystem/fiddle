@@ -1,8 +1,12 @@
+/**
+ * @jest-environment node
+ */
+
 import { IpcEvents } from '../../src/ipc-events';
 import {
   setupFileListeners,
   showOpenDialog,
-  showSaveDialog
+  showSaveDialog,
 } from '../../src/main/files';
 import { ipcMainManager } from '../../src/main/ipc';
 
@@ -12,162 +16,129 @@ import { getOrCreateMainWindow } from '../../src/main/windows';
 
 jest.mock('../../src/main/windows');
 jest.mock('fs-extra', () => ({
-  existsSync: jest.fn()
+  existsSync: jest.fn(),
 }));
 
-describe('files', () => {
-  describe('setupFileListeners()', () => {
+const mockTarget = {
+  webContents: {
+    send: jest.fn(),
+  },
+};
 
+describe('files', () => {
+  beforeEach(() => {
+    (dialog.showOpenDialog as jest.Mock).mockResolvedValue({
+      filePaths: ['my/fake/path'],
+    });
+    (getOrCreateMainWindow as jest.Mock).mockReturnValue(mockTarget);
+
+    ipcMainManager.readyWebContents.add(mockTarget.webContents as any);
+  });
+
+  describe('setupFileListeners()', () => {
     it('sets up the listener', () => {
       setupFileListeners();
 
       expect(ipcMainManager.eventNames()).toEqual([
-        IpcEvents.FS_SAVE_FIDDLE_DIALOG
+        IpcEvents.FS_SAVE_FIDDLE_DIALOG,
       ]);
 
       ipcMainManager.emit(IpcEvents.FS_SAVE_FIDDLE_DIALOG);
-      expect(dialog.showOpenDialog).toHaveBeenCalled();
+      expect(dialog.showOpenDialogSync).toHaveBeenCalled();
     });
   });
 
   describe('showOpenDialog', () => {
-    it('tries to open an "open" dialog', () => {
-      showOpenDialog();
+    it('tries to open an "open" dialog', async () => {
+      await showOpenDialog();
 
-      const call = (dialog.showOpenDialog as jest.Mock<any>).mock.calls[0];
+      const call = (dialog.showOpenDialog as jest.Mock).mock.calls[0];
 
       expect(dialog.showOpenDialog).toHaveBeenCalled();
       expect(call[0]).toEqual({
         title: 'Open Fiddle',
-        properties: ['openDirectory']
+        properties: ['openDirectory'],
       });
     });
 
     it('notifies the main window of the event', async () => {
-      showOpenDialog();
+      (getOrCreateMainWindow as jest.Mock).mockReturnValue(mockTarget);
 
-      const call = (dialog.showOpenDialog as jest.Mock<any>).mock.calls[0];
-      const cb = call[1];
-      const mockTarget = {
-        webContents: {
-          send: jest.fn()
-        }
-      };
+      await showOpenDialog();
 
-      (getOrCreateMainWindow as jest.Mock<any>).mockReturnValue(mockTarget);
-      ipcMainManager.readyWebContents.add(mockTarget.webContents as any);
-
-      await cb('/my/fake/path');
-      expect(mockTarget.webContents.send).toHaveBeenCalledTimes(1);
-      await cb('');
       expect(mockTarget.webContents.send).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('showSaveDialog', () => {
-    it('tries to open an "open" dialog to be used as a save dialog', () => {
-      showSaveDialog();
+    it('tries to open an "open" dialog to be used as a save dialog', async () => {
+      await showSaveDialog();
 
-      const call = (dialog.showOpenDialog as jest.Mock<any>).mock.calls[0];
+      const call = (dialog.showOpenDialogSync as jest.Mock).mock.calls[0];
 
-      expect(dialog.showOpenDialog).toHaveBeenCalled();
+      expect(dialog.showOpenDialogSync).toHaveBeenCalled();
       expect(call[0]).toEqual({
         buttonLabel: 'Save here',
         properties: ['openDirectory', 'createDirectory'],
-        title: 'Save Fiddle'
+        title: 'Save Fiddle',
       });
     });
 
-    it('tries to open an "open" dialog to be used as a save as dialog', () => {
-      showSaveDialog(IpcEvents.FS_SAVE_FIDDLE, 'hello');
+    it('tries to open an "open" dialog to be used as a save as dialog', async () => {
+      await showSaveDialog(IpcEvents.FS_SAVE_FIDDLE, 'hello');
 
-      const call = (dialog.showOpenDialog as jest.Mock<any>).mock.calls[0];
+      const call = (dialog.showOpenDialogSync as jest.Mock).mock.calls[0];
 
-      expect(dialog.showOpenDialog).toHaveBeenCalled();
+      expect(dialog.showOpenDialogSync).toHaveBeenCalled();
       expect(call[0]).toEqual({
         buttonLabel: 'Save here',
         properties: ['openDirectory', 'createDirectory'],
-        title: 'Save Fiddle as hello'
+        title: 'Save Fiddle as hello',
       });
     });
 
-    it('handles not getting a path returned', async (done) => {
-      showSaveDialog();
-
-      const call = (dialog.showOpenDialog as jest.Mock<any>).mock.calls[0];
-      const cb = call[1];
-
-      await cb();
-
-      process.nextTick(() => {
-        expect(fs.existsSync).toHaveBeenCalledTimes(0);
-        done();
-      });
+    it('handles not getting a path returned', async () => {
+      (dialog.showOpenDialogSync as jest.Mock).mockReturnValueOnce([]);
+      await showSaveDialog();
+      expect(fs.existsSync).toHaveBeenCalledTimes(0);
     });
 
     it('ensures that the target is empty on save', async () => {
-      showSaveDialog();
-
-      const call = (dialog.showOpenDialog as jest.Mock<any>).mock.calls[0];
-      const cb = call[1];
-      const mockTarget = {
-        webContents: {
-          send: jest.fn()
-        }
-      };
-
-      (dialog.showMessageBox as jest.Mock<any>).mockImplementation(async () => true);
-      (getOrCreateMainWindow as jest.Mock<any>).mockReturnValue(mockTarget);
-      (fs.existsSync as jest.Mock<any>).mockReturnValue(true);
+      (dialog.showOpenDialogSync as jest.Mock).mockReturnValue(['path']);
+      (dialog.showMessageBox as jest.Mock).mockResolvedValue(true);
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
       ipcMainManager.readyWebContents.add(mockTarget.webContents as any);
 
-      await cb('/my/fake/path');
+      await showSaveDialog();
+
       expect(dialog.showMessageBox).toHaveBeenCalled();
       expect(mockTarget.webContents.send).toHaveBeenCalled();
     });
 
     it('does not overwrite files without consent', async () => {
-      showSaveDialog();
+      (dialog.showOpenDialogSync as jest.Mock).mockReturnValue(['path']);
+      (dialog.showMessageBox as jest.Mock).mockResolvedValue(false);
+      (getOrCreateMainWindow as jest.Mock).mockReturnValue(mockTarget);
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
 
-      const call = (dialog.showOpenDialog as jest.Mock<any>).mock.calls[0];
-      const cb = call[1];
-      const mockTarget = {
-        webContents: {
-          send: jest.fn()
-        }
-      };
+      await showSaveDialog();
 
-      (dialog.showMessageBox as jest.Mock<any>).mockImplementation(async () => false);
-      (getOrCreateMainWindow as jest.Mock<any>).mockReturnValue(mockTarget);
-      (fs.existsSync as jest.Mock<any>).mockReturnValue(true);
-      ipcMainManager.readyWebContents.add(mockTarget.webContents as any);
-
-      await cb('/my/fake/path');
       expect(dialog.showMessageBox).toHaveBeenCalled();
       expect(mockTarget.webContents.send).toHaveBeenCalledTimes(0);
     });
 
     it('does not overwrite files if an error happens', async () => {
-      showSaveDialog();
-
-      const call = (dialog.showOpenDialog as jest.Mock<any>).mock.calls[0];
-      const cb = call[1];
-      const mockTarget = {
-        webContents: {
-          send: jest.fn()
-        }
-      };
-
-      (dialog.showMessageBox as jest.Mock<any>).mockImplementation(async () => {
+      (dialog.showOpenDialogSync as jest.Mock).mockReturnValue(['path']);
+      (dialog.showMessageBox as jest.Mock).mockImplementation(async () => {
         throw new Error('Nope');
       });
-      (getOrCreateMainWindow as jest.Mock<any>).mockReturnValue(mockTarget);
-      (fs.existsSync as jest.Mock<any>).mockReturnValue(true);
+      (getOrCreateMainWindow as jest.Mock).mockReturnValue(mockTarget);
+      (fs.existsSync as jest.Mock).mockReturnValue(true);
 
       let errored = false;
 
       try {
-        await cb('/fake/path');
+        await showSaveDialog();
       } catch (error) {
         errored = error;
       }

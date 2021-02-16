@@ -5,10 +5,8 @@
 
 const { app, BrowserWindow } = require('electron')
 
-let mainWindow = null
-
-app.on('ready', () => {
-  mainWindow = new BrowserWindow({
+app.whenReady().then(() => {
+  const mainWindow = new BrowserWindow({
     height: 600,
     width: 600,
     webPreferences: {
@@ -18,6 +16,6 @@ app.on('ready', () => {
   mainWindow.loadFile('index.html')
 
   mainWindow.webContents.on('crashed', () => {
-    console.log(`Window crashed!`)
+    console.log('Window crashed!')
   })
 })

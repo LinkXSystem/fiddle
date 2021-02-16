@@ -44,6 +44,7 @@ Array [
     >
       <button
         className="bp3-button bp3-minimal"
+        onBlur={[Function]}
         onClick={[Function]}
         onKeyDown={[Function]}
         onKeyUp={[Function]}
@@ -63,7 +64,7 @@ Array [
               play
             </desc>
             <path
-              d="M12 8c0-.35-.19-.64-.46-.82l.01-.02-6-4-.01.02A.969.969 0 0 0 5 3c-.55 0-1 .45-1 1v8c0 .55.45 1 1 1 .21 0 .39-.08.54-.18l.01.02 6-4-.01-.02c.27-.18.46-.47.46-.82z"
+              d="M12 8c0-.35-.19-.64-.46-.82l.01-.02-6-4-.01.02A.969.969 0 005 3c-.55 0-1 .45-1 1v8c0 .55.45 1 1 1 .21 0 .39-.08.54-.18l.01.02 6-4-.01-.02c.27-.18.46-.47.46-.82z"
               fillRule="evenodd"
               key="0"
             />
@@ -82,7 +83,8 @@ Array [
   <p
     className="b3-running-text"
   >
-    For more documentation, visit 
+    For more documentation, visit
+     
     <a
       id="open-url"
       onClick={[Function]}
@@ -94,7 +96,8 @@ Array [
   <p
     className="bp3-text-muted"
   >
-    By the way, Electron Fiddle and the documentation you see here is entirely open source. If you have ideas on how to improve it, we'd love to have your contributions! You can find the repository on 
+    By the way, Electron Fiddle and the documentation you see here is entirely open source. If you have ideas on how to improve it, we'd love to have your contributions! You can find the repository on
+     
     <a
       id="open-github"
       onClick={[Function]}

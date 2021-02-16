@@ -1,5 +1,71 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`EditorDropdown component disables hide button if only one editor open 1`] = `
+Array [
+  <Blueprint3.MenuItem
+    disabled={false}
+    icon="eye-off"
+    id="main"
+    multiline={false}
+    onClick={[Function]}
+    popoverProps={Object {}}
+    shouldDismissPopover={true}
+    text="Main Process (main.js)"
+  />,
+  <Blueprint3.MenuItem
+    disabled={false}
+    icon="eye-off"
+    id="renderer"
+    multiline={false}
+    onClick={[Function]}
+    popoverProps={Object {}}
+    shouldDismissPopover={true}
+    text="Renderer Process (renderer.js)"
+  />,
+  <Blueprint3.MenuItem
+    disabled={false}
+    icon="eye-off"
+    id="preload"
+    multiline={false}
+    onClick={[Function]}
+    popoverProps={Object {}}
+    shouldDismissPopover={true}
+    text="Preload (preload.js)"
+  />,
+  <Blueprint3.MenuItem
+    disabled={true}
+    icon="eye-open"
+    id="html"
+    multiline={false}
+    onClick={[Function]}
+    popoverProps={Object {}}
+    shouldDismissPopover={true}
+    text="HTML (index.html)"
+  />,
+  <Blueprint3.MenuItem
+    disabled={false}
+    icon="eye-off"
+    id="css"
+    multiline={false}
+    onClick={[Function]}
+    popoverProps={Object {}}
+    shouldDismissPopover={true}
+    text="Stylesheet (styles.css)"
+  />,
+  <React.Fragment>
+    <Blueprint3.MenuDivider />
+    <Blueprint3.MenuItem
+      disabled={false}
+      icon="grid-view"
+      multiline={false}
+      popoverProps={Object {}}
+      shouldDismissPopover={true}
+      text="Reset Layout"
+    />
+  </React.Fragment>,
+]
+`;
+
 exports[`EditorDropdown component renders 1`] = `
 <Fragment>
   <Blueprint3.Popover
@@ -29,6 +95,16 @@ exports[`EditorDropdown component renders 1`] = `
         />
         <Blueprint3.MenuItem
           disabled={false}
+          icon="eye-off"
+          id="preload"
+          multiline={false}
+          onClick={[Function]}
+          popoverProps={Object {}}
+          shouldDismissPopover={true}
+          text="Preload (preload.js)"
+        />
+        <Blueprint3.MenuItem
+          disabled={false}
           icon="eye-open"
           id="html"
           multiline={false}
@@ -37,6 +113,27 @@ exports[`EditorDropdown component renders 1`] = `
           shouldDismissPopover={true}
           text="HTML (index.html)"
         />
+        <Blueprint3.MenuItem
+          disabled={false}
+          icon="eye-off"
+          id="css"
+          multiline={false}
+          onClick={[Function]}
+          popoverProps={Object {}}
+          shouldDismissPopover={true}
+          text="Stylesheet (styles.css)"
+        />
+        <React.Fragment>
+          <Blueprint3.MenuDivider />
+          <Blueprint3.MenuItem
+            disabled={false}
+            icon="grid-view"
+            multiline={false}
+            popoverProps={Object {}}
+            shouldDismissPopover={true}
+            text="Reset Layout"
+          />
+        </React.Fragment>
       </Blueprint3.Menu>
     }
     defaultIsOpen={false}
@@ -100,6 +197,16 @@ exports[`EditorDropdown component renders the extra button if the FIDDLE_DOCS_DE
         />
         <Blueprint3.MenuItem
           disabled={false}
+          icon="eye-off"
+          id="preload"
+          multiline={false}
+          onClick={[Function]}
+          popoverProps={Object {}}
+          shouldDismissPopover={true}
+          text="Preload (preload.js)"
+        />
+        <Blueprint3.MenuItem
+          disabled={false}
           icon="eye-open"
           id="html"
           multiline={false}
@@ -108,6 +215,27 @@ exports[`EditorDropdown component renders the extra button if the FIDDLE_DOCS_DE
           shouldDismissPopover={true}
           text="HTML (index.html)"
         />
+        <Blueprint3.MenuItem
+          disabled={false}
+          icon="eye-off"
+          id="css"
+          multiline={false}
+          onClick={[Function]}
+          popoverProps={Object {}}
+          shouldDismissPopover={true}
+          text="Stylesheet (styles.css)"
+        />
+        <React.Fragment>
+          <Blueprint3.MenuDivider />
+          <Blueprint3.MenuItem
+            disabled={false}
+            icon="grid-view"
+            multiline={false}
+            popoverProps={Object {}}
+            shouldDismissPopover={true}
+            text="Reset Layout"
+          />
+        </React.Fragment>
       </Blueprint3.Menu>
     }
     defaultIsOpen={false}

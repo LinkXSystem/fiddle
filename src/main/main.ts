@@ -1,10 +1,15 @@
+import { initSentry } from '../sentry';
+initSentry();
+
 import { app } from 'electron';
 
+import { IpcEvents } from '../ipc-events';
 import { isDevMode } from '../utils/devmode';
-import { setupAboutPanel } from '../utils/set-about-panel';
+import { setupAboutPanel } from './about-panel';
 import { setupDevTools } from './devtools';
 import { setupDialogs } from './dialogs';
 import { onFirstRunMaybe } from './first-run';
+import { ipcMainManager } from './ipc';
 import { listenForProtocolHandler, setupProtocolHandler } from './protocol';
 import { shouldQuit } from './squirrel';
 import { setupUpdates } from './update';
@@ -15,7 +20,7 @@ import { getOrCreateMainWindow } from './windows';
  * the method that takes care of booting the application.
  */
 export async function onReady() {
-  onFirstRunMaybe();
+  await onFirstRunMaybe();
   if (!isDevMode()) process.env.NODE_ENV = 'production';
 
   getOrCreateMainWindow();
@@ -25,6 +30,7 @@ export async function onReady() {
   const { setupFileListeners } = await import('./files');
 
   setupMenu();
+  setupMenuHandler();
   setupProtocolHandler();
   setupFileListeners();
   setupUpdates();
@@ -38,7 +44,17 @@ export async function onReady() {
  * @export
  */
 export function onBeforeQuit() {
-  (global as any).isQuitting = true;
+  ipcMainManager.send(IpcEvents.BEFORE_QUIT);
+  ipcMainManager.on(IpcEvents.CONFIRM_QUIT, app.quit);
+}
+
+export function setupMenuHandler() {
+  ipcMainManager.on(
+    IpcEvents.BLOCK_ACCELERATORS,
+    async (_, acceleratorsToBlock) => {
+      (await import('./menu')).setupMenu(acceleratorsToBlock);
+    },
+  );
 }
 
 /**
@@ -68,13 +84,13 @@ export function main() {
   }
 
   // Set the app's name
-  app.setName('Electron Fiddle');
+  app.name = 'Electron Fiddle';
 
   // Ensure that there's only ever one Fiddle running
   listenForProtocolHandler();
 
   // Launch
-  app.on('ready', onReady);
+  app.whenReady().then(onReady);
   app.on('before-quit', onBeforeQuit);
   app.on('window-all-closed', onWindowsAllClosed);
   app.on('activate', getOrCreateMainWindow);

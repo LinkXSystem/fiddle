@@ -30,8 +30,10 @@ describe('content', () => {
 
     describe(EditorId.main, () => {
       it('returns false if it changed', async () => {
-        (window.ElectronFiddle.app.getValues as jest.Mock<any>).mockReturnValueOnce({
-          main: 'hi'
+        (window.ElectronFiddle.app.getEditorValues as jest.Mock<
+          any
+        >).mockReturnValueOnce({
+          main: 'hi',
         });
 
         const isUnchanged = await isContentUnchanged(EditorId.main);
@@ -39,8 +41,10 @@ describe('content', () => {
       });
 
       it('returns true if it did not change', async () => {
-        (window.ElectronFiddle.app.getValues as jest.Mock<any>).mockReturnValueOnce({
-          main: require('../../src/content/main').main
+        (window.ElectronFiddle.app.getEditorValues as jest.Mock<
+          any
+        >).mockReturnValueOnce({
+          main: require('../../src/content/main').main,
         });
 
         const isUnchanged = await isContentUnchanged(EditorId.main);
@@ -48,8 +52,10 @@ describe('content', () => {
       });
 
       it('returns true if it did not change (1.0 version)', async () => {
-        (window.ElectronFiddle.app.getValues as jest.Mock<any>).mockReturnValueOnce({
-          main: require('../../src/content/main-1-x-x').main
+        (window.ElectronFiddle.app.getEditorValues as jest.Mock<
+          any
+        >).mockReturnValueOnce({
+          main: require('../../src/content/main-1-x-x').main,
         });
 
         const isUnchanged = await isContentUnchanged(EditorId.main);
@@ -59,8 +65,10 @@ describe('content', () => {
 
     describe(EditorId.renderer, () => {
       it('returns false if it changed', async () => {
-        (window.ElectronFiddle.app.getValues as jest.Mock<any>).mockReturnValueOnce({
-          renderer: 'hi'
+        (window.ElectronFiddle.app.getEditorValues as jest.Mock<
+          any
+        >).mockReturnValueOnce({
+          renderer: 'hi',
         });
 
         const isUnchanged = await isContentUnchanged(EditorId.renderer);
@@ -68,8 +76,10 @@ describe('content', () => {
       });
 
       it('returns true if it did not change', async () => {
-        (window.ElectronFiddle.app.getValues as jest.Mock<any>).mockReturnValueOnce({
-          renderer: require('../../src/content/renderer').renderer
+        (window.ElectronFiddle.app.getEditorValues as jest.Mock<
+          any
+        >).mockReturnValueOnce({
+          renderer: require('../../src/content/renderer').renderer,
         });
 
         const isUnchanged = await isContentUnchanged(EditorId.renderer);

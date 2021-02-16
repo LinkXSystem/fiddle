@@ -3,16 +3,22 @@ import * as path from 'path';
 
 import { EditorValues, FileTransform } from '../interfaces';
 import { IpcEvents } from '../ipc-events';
-import { getAppDataDir } from '../utils/app-data-dir';
 import { PackageJsonOptions } from '../utils/get-package';
 import { maybePlural } from '../utils/plural-maybe';
+import { getElectronBinaryPath, getIsDownloaded } from './binary';
 import { ipcRendererManager } from './ipc';
-import { findModulesInEditors, getIsNpmInstalled, installModules, npmRun } from './npm';
+import {
+  findModulesInEditors,
+  getIsPackageManagerInstalled,
+  installModules,
+  packageRun,
+  PMOperationOptions,
+} from './npm';
 import { AppState } from './state';
 
 export enum ForgeCommands {
   PACKAGE = 'package',
-  MAKE = 'make'
+  MAKE = 'make',
 }
 
 export class Runner {
@@ -21,6 +27,10 @@ export class Runner {
   constructor(private readonly appState: AppState) {
     this.run = this.run.bind(this);
     this.stop = this.stop.bind(this);
+
+    ipcRendererManager.removeAllListeners(IpcEvents.FIDDLE_RUN);
+    ipcRendererManager.removeAllListeners(IpcEvents.FIDDLE_PACKAGE);
+    ipcRendererManager.removeAllListeners(IpcEvents.FIDDLE_MAKE);
 
     ipcRendererManager.on(IpcEvents.FIDDLE_RUN, this.run);
     ipcRendererManager.on(IpcEvents.FIDDLE_PACKAGE, () => {
@@ -37,9 +47,9 @@ export class Runner {
    * @returns {Promise<boolean>}
    */
   public async run(): Promise<boolean> {
-    const { fileManager, getValues } = window.ElectronFiddle.app;
+    const { fileManager, getEditorValues } = window.ElectronFiddle.app;
     const options = { includeDependencies: false, includeElectron: false };
-    const { binaryManager, currentElectronVersion } = this.appState;
+    const { currentElectronVersion } = this.appState;
     const { version, localPath } = currentElectronVersion;
 
     if (this.appState.isClearingConsoleOnRun) {
@@ -47,20 +57,21 @@ export class Runner {
     }
     this.appState.isConsoleShowing = true;
 
-    const values = await getValues(options);
+    const values = await getEditorValues(options);
     const dir = await this.saveToTemp(options);
+    const packageManager = this.appState.packageManager;
 
     if (!dir) return false;
 
     try {
-      await this.installModulesForEditor(values, dir);
+      await this.installModulesForEditor(values, { dir, packageManager });
     } catch (error) {
       console.error('Runner: Could not install modules', error);
       fileManager.cleanup(dir);
       return false;
     }
 
-    const isReady = await binaryManager.getIsDownloaded(version, localPath);
+    const isReady = await getIsDownloaded(version, localPath);
 
     if (!isReady) {
       console.warn(`Runner: Binary ${version} not ready`);
@@ -97,39 +108,49 @@ export class Runner {
    * @returns {Promise<boolean>}
    * @memberof Runner
    */
-  public async performForgeOperation(operation: ForgeCommands): Promise<boolean> {
+  public async performForgeOperation(
+    operation: ForgeCommands,
+  ): Promise<boolean> {
     const options = { includeDependencies: true, includeElectron: true };
     const { dotfilesTransform } = await import('./transforms/dotfiles');
     const { forgeTransform } = await import('./transforms/forge');
     const { pushError, pushOutput } = this.appState;
 
-    const strings = operation === ForgeCommands.MAKE
-      ? [ 'Creating installers for', 'Binary' ]
-      : [ 'Packaging', 'Installers' ];
+    const strings =
+      operation === ForgeCommands.MAKE
+        ? ['Creating installers for', 'Binary']
+        : ['Packaging', 'Installers'];
 
     this.appState.isConsoleShowing = true;
     pushOutput(`📦 ${strings[0]} current Fiddle...`);
 
-    if (!(await getIsNpmInstalled())) {
-      let message = `Error: Could not find npm. Fiddle requires Node.js and npm `;
+    const packageManager = this.appState.packageManager;
+    const pmInstalled = await getIsPackageManagerInstalled(packageManager);
+    if (!pmInstalled) {
+      let message = `Error: Could not find ${packageManager}. Fiddle requires Node.js and npm or yarn `;
       message += `to compile packages. Please visit https://nodejs.org to install `;
-      message += `Node.js and npm.`;
+      message += `Node.js and npm, or https://classic.yarnpkg.com/lang/en/ `;
+      message += `to install Yarn`;
 
       this.appState.pushOutput(message, { isNotPre: true });
       return false;
     }
 
     // Save files to temp
-    const dir = await this.saveToTemp(options, dotfilesTransform, forgeTransform);
+    const dir = await this.saveToTemp(
+      options,
+      dotfilesTransform,
+      forgeTransform,
+    );
     if (!dir) return false;
 
     // Files are now saved to temp, let's install Forge and dependencies
-    if (!(await this.npmInstall(dir))) return false;
+    if (!(await this.packageInstall({ dir, packageManager }))) return false;
 
     // Cool, let's run "package"
     try {
       console.log(`Now creating ${strings[1].toLowerCase()}...`);
-      pushOutput(await npmRun({ dir }, operation));
+      pushOutput(await packageRun({ dir, packageManager }, operation));
       pushOutput(`✅ ${strings[1]} successfully created.`, { isNotPre: true });
     } catch (error) {
       pushError(`Creating ${strings[1].toLowerCase()} failed.`, error);
@@ -149,24 +170,39 @@ export class Runner {
    * @param {string} dir
    * @returns {Promise<void>}
    */
-  public async installModulesForEditor(values: EditorValues, dir: string): Promise<void> {
+  public async installModulesForEditor(
+    values: EditorValues,
+    pmOptions: PMOperationOptions,
+  ): Promise<void> {
     const modules = await findModulesInEditors(values);
     const { pushOutput } = this.appState;
 
     if (modules && modules.length > 0) {
-      if (!(await getIsNpmInstalled())) {
-        let message = `The ${maybePlural(`module`, modules)} ${modules.join(', ')} need to be installed, `;
-        message += `but we could not find npm. Fiddle requires Node.js and npm `;
+      this.appState.isInstallingModules = true;
+      const packageManager = pmOptions.packageManager;
+      const pmInstalled = await getIsPackageManagerInstalled(packageManager);
+      if (!pmInstalled) {
+        let message = `The ${maybePlural(`module`, modules)} ${modules.join(
+          ', ',
+        )} need to be installed, `;
+        message += `but we could not find ${packageManager}. Fiddle requires Node.js and npm `;
         message += `to support the installation of modules not included in `;
         message += `Electron. Please visit https://nodejs.org to install Node.js `;
-        message += `and npm.`;
+        message += `and npm, or https://classic.yarnpkg.com/lang/en/ to install Yarn`;
 
         pushOutput(message, { isNotPre: true });
+        this.appState.isInstallingModules = false;
         return;
       }
 
-      pushOutput(`Installing npm modules: ${modules.join(', ')}...`, { isNotPre: true });
-      pushOutput(await installModules({ dir }, ...modules));
+      pushOutput(
+        `Installing node modules using ${
+          pmOptions.packageManager
+        }: ${modules.join(', ')}...`,
+        { isNotPre: true },
+      );
+      pushOutput(await installModules(pmOptions, ...modules));
+      this.appState.isInstallingModules = false;
     }
   }
 
@@ -179,33 +215,38 @@ export class Runner {
    * @memberof Runner
    */
   public async execute(dir: string): Promise<void> {
-    const { currentElectronVersion, pushOutput, binaryManager } = this.appState;
+    const { currentElectronVersion, pushOutput } = this.appState;
     const { version, localPath } = currentElectronVersion;
-    const binaryPath = binaryManager.getElectronBinaryPath(version, localPath);
+    const binaryPath = getElectronBinaryPath(version, localPath);
     console.log(`Runner: Binary ${binaryPath} ready, launching`);
 
     const env = { ...process.env };
     if (this.appState.isEnablingElectronLogging) {
       env.ELECTRON_ENABLE_LOGGING = 'true';
+      env.ELECTRON_DEBUG_NOTIFICATIONS = 'true';
       env.ELECTRON_ENABLE_STACK_DUMPING = 'true';
     } else {
       delete env.ELECTRON_ENABLE_LOGGING;
+      delete env.ELECTRON_DEBUG_NOTIFICATIONS;
       delete env.ELECTRON_ENABLE_STACK_DUMPING;
     }
 
-    this.child = spawn(binaryPath, [ dir, '--inspect' ], {
-      cwd: dir,
-      env,
-    });
+    // Add user-specified cli flags if any have been set.
+    const options = [dir, '--inspect'].concat(this.appState.executionFlags);
+
+    this.child = spawn(binaryPath, options, { cwd: dir, env });
     this.appState.isRunning = true;
     pushOutput(`Electron v${version} started.`);
 
-    this.child.stdout.on('data', (data) => pushOutput(data, { bypassBuffer: false }));
-    this.child.stderr.on('data', (data) => pushOutput(data, { bypassBuffer: false }));
+    this.child.stdout!.on('data', (data) =>
+      pushOutput(data, { bypassBuffer: false }),
+    );
+    this.child.stderr!.on('data', (data) =>
+      pushOutput(data, { bypassBuffer: false }),
+    );
     this.child.on('close', async (code) => {
-      const withCode = typeof code === 'number'
-        ? ` with code ${code.toString()}.`
-        : `.`;
+      const withCode =
+        typeof code === 'number' ? ` with code ${code.toString()}.` : `.`;
 
       pushOutput(`Electron exited${withCode}`);
       this.appState.isRunning = false;
@@ -226,7 +267,8 @@ export class Runner {
    * @memberof Runner
    */
   public async saveToTemp(
-    options: PackageJsonOptions, ...transforms: Array<FileTransform>
+    options: PackageJsonOptions,
+    ...transforms: Array<FileTransform>
   ): Promise<string | null> {
     const { fileManager } = window.ElectronFiddle.app;
     const { pushOutput, pushError } = this.appState;
@@ -237,7 +279,7 @@ export class Runner {
       pushOutput(`Saved files to ${dir}`);
       return dir;
     } catch (error) {
-      pushError('Failed to save files.', error);
+      pushError('Failed to save files.', error.message);
     }
 
     return null;
@@ -245,16 +287,16 @@ export class Runner {
 
   /**
    * Installs modules in a given directory (we're basically
-   * just running "npm install")
+   * just running "{packageManager} install")
    *
-   * @param {string} dir
+   * @param {PMOperationOptions} options
    * @returns
    * @memberof Runner
    */
-  public async npmInstall(dir: string): Promise<boolean> {
+  public async packageInstall(options: PMOperationOptions): Promise<boolean> {
     try {
       this.appState.pushOutput(`Now running "npm install..."`);
-      this.appState.pushOutput(await installModules({ dir }));
+      this.appState.pushOutput(await installModules(options));
       return true;
     } catch (error) {
       this.appState.pushError('Failed to run "npm install".', error);
@@ -268,12 +310,14 @@ export class Runner {
    */
   private async deleteUserData() {
     if (this.appState.isKeepingUserDataDirs) {
-      console.log(`Cleanup: Not deleting data dir due to isKeepingUserDataDirs setting`);
+      console.log(
+        `Cleanup: Not deleting data dir due to isKeepingUserDataDirs setting`,
+      );
       return;
     }
 
     const name = await this.appState.getName();
-    const appData = getAppDataDir(name);
+    const appData = path.join(this.appState.appData, name);
 
     console.log(`Cleanup: Deleting data dir ${appData}`);
     await window.ElectronFiddle.app.fileManager.cleanup(appData);

@@ -5,10 +5,8 @@
 
 const { app, BrowserWindow } = require('electron')
 
-let mainWindow = null
-
-app.on('ready', () => {
-  mainWindow = new BrowserWindow({
+app.whenReady().then(() => {
+  const mainWindow = new BrowserWindow({
     width: 600,
     height: 600,
     webPreferences: {

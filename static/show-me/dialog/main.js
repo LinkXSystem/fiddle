@@ -5,20 +5,21 @@
 
 const { app, BrowserWindow, dialog } = require('electron')
 
-let mainWindow = null
-
-app.on('ready', () => {
-  mainWindow = new BrowserWindow({ height: 600, width: 600 })
+app.whenReady().then(() => {
+  const mainWindow = new BrowserWindow({ height: 600, width: 600 })
 
   // Show an "Open File" dialog and attempt to open
   // the chosen file in our window.
-  //
-  // If you provide a callback, the method will be asynchronous,
-  // but in thise case, we'll just use the synchronous variant.
-  const file = dialog.showOpenDialog({
-    title: 'Hello!',
+  dialog.showOpenDialog(mainWindow, {
     properties: ['openFile']
+  }).then(result => {
+    if (result.canceled) {
+      console.log('Dialog was canceled')
+    } else {
+      const file = result.filePaths[0]
+      mainWindow.loadURL(`file://${file}`)
+    }
+  }).catch(err => {
+    console.log(err)
   })
-
-  mainWindow.loadURL(`file://${file}`)
 })

@@ -1,3 +1,7 @@
+/**
+ * @jest-environment node
+ */
+
 import * as electron from 'electron';
 import { IpcEvents } from '../../src/ipc-events';
 import { ipcMainManager } from '../../src/main/ipc';
@@ -25,8 +29,8 @@ describe('IpcMainManager', () => {
     it('sends an event and finds the main window', () => {
       const mockTarget = {
         webContents: {
-          send: jest.fn()
-        }
+          send: jest.fn(),
+        },
       };
 
       (getOrCreateMainWindow as jest.Mock<any>).mockReturnValue(mockTarget);
@@ -34,12 +38,14 @@ describe('IpcMainManager', () => {
 
       ipcMainManager.send(IpcEvents.FIDDLE_RUN);
 
-      expect(mockTarget.webContents.send).toHaveBeenCalledWith(IpcEvents.FIDDLE_RUN);
+      expect(mockTarget.webContents.send).toHaveBeenCalledWith<any>(
+        IpcEvents.FIDDLE_RUN,
+      );
     });
 
     it('sends an event to a target window', () => {
       const mockTarget = {
-        send: jest.fn()
+        send: jest.fn(),
       };
 
       (getOrCreateMainWindow as jest.Mock<any>).mockReturnValue(null);
@@ -47,12 +53,12 @@ describe('IpcMainManager', () => {
 
       ipcMainManager.send(IpcEvents.FIDDLE_RUN, undefined, mockTarget as any);
 
-      expect(mockTarget.send).toHaveBeenCalledWith(IpcEvents.FIDDLE_RUN);
+      expect(mockTarget.send).toHaveBeenCalledWith<any>(IpcEvents.FIDDLE_RUN);
     });
 
     it('does not send an event to a target window if it is not ready', () => {
       const mockTarget = {
-        send: jest.fn()
+        send: jest.fn(),
       };
 
       (getOrCreateMainWindow as jest.Mock<any>).mockReturnValue(null);

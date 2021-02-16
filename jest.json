@@ -1,12 +1,15 @@
 {
   "transform": {
-    ".(js|jsx|ts|tsx)": "ts-jest"
+    "\\.(js|jsx|ts|tsx)$": "ts-jest"
   },
   "testURL": "http://localhost",
   "testRegex": "(-spec)\\.(ts|tsx)$",
-  "bail": true,
   "resetMocks": true,
+  "bail": true,
   "resetModules": true,
+  "snapshotSerializers": [
+    "enzyme-to-json/serializer"
+  ],
   "setupFilesAfterEnv": [
     "<rootDir>/tests/setup.js"
   ],

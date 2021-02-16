@@ -1,19 +1,30 @@
-import { when } from 'mobx';
+import { initSentry } from '../sentry';
+initSentry();
+
+import { reaction, when } from 'mobx';
 import * as MonacoType from 'monaco-editor';
 
 import { ipcRenderer } from 'electron';
-import { ALL_EDITORS, EditorId, EditorValues } from '../interfaces';
+import {
+  ALL_EDITORS,
+  EditorId,
+  EditorValues,
+  GenericDialogType,
+  SetFiddleOptions,
+} from '../interfaces';
 import { WEBCONTENTS_READY_FOR_IPC_SIGNAL } from '../ipc-events';
 import { updateEditorLayout } from '../utils/editor-layout';
 import { getEditorValue } from '../utils/editor-value';
 import { getPackageJson, PackageJsonOptions } from '../utils/get-package';
+import { getTitle } from '../utils/get-title';
 import { isEditorBackup } from '../utils/type-checks';
+import { EMPTY_EDITOR_CONTENT } from './constants';
 import { FileManager } from './file-manager';
 import { RemoteLoader } from './remote-loader';
 import { Runner } from './runner';
 import { appState } from './state';
 import { getTheme } from './themes';
-import { TouchBarManager } from './touch-bar-manager';
+import { defaultDark, defaultLight } from './themes-defaults';
 
 /**
  * The top-level class controlling the whole app. This is *not* a React component,
@@ -28,37 +39,83 @@ export class App {
   public fileManager = new FileManager(appState);
   public remoteLoader = new RemoteLoader(appState);
   public runner = new Runner(appState);
-  public touchBarManager: TouchBarManager | undefined;
 
   constructor() {
-    this.getValues = this.getValues.bind(this);
-    this.setValues = this.setValues.bind(this);
+    this.getEditorValues = this.getEditorValues.bind(this);
+    this.setEditorValues = this.setEditorValues.bind(this);
+  }
 
-    if (process.platform === 'darwin') {
-      this.touchBarManager = new TouchBarManager(appState);
+  public async replaceFiddle(
+    editorValues: Partial<EditorValues>,
+    { filePath, gistId, templateName }: Partial<SetFiddleOptions>,
+  ) {
+    // if unsaved, prompt user to make sure they're okay with overwriting and changing directory
+    if (this.state.isUnsaved) {
+      this.state.setGenericDialogOptions({
+        type: GenericDialogType.warning,
+        label: `Opening this Fiddle will replace your unsaved changes. Do you want to proceed?`,
+        ok: 'Yes',
+      });
+      this.state.isGenericDialogShowing = true;
+      await when(() => !this.state.isGenericDialogShowing);
+
+      if (!this.state.genericDialogLastResult) {
+        return false;
+      }
     }
+
+    // display all editors that have content
+    const visibleEditors = [];
+
+    // ensure consistent sorting of mosaics
+    const sortedEditors = Object.keys(editorValues).sort((a, b) => {
+      const order: Array<string> = [
+        'main',
+        'renderer',
+        'html',
+        'preload',
+        'css',
+      ];
+
+      return order.indexOf(a) - order.indexOf(b);
+    });
+
+    for (const id of sortedEditors) {
+      const content = editorValues[id];
+
+      // if the gist content is empty or matches the empty file output, don't show it
+      if (
+        content.length > 0 &&
+        !Object.values(EMPTY_EDITOR_CONTENT).includes(content)
+      ) {
+        visibleEditors.push(id as EditorId);
+      }
+    }
+
+    this.state.gistId = gistId || '';
+    this.state.localPath = filePath;
+    this.state.templateName = templateName;
+
+    // once loaded, we have a "saved" state
+    await this.state.setVisibleMosaics(visibleEditors);
+    await this.setEditorValues(editorValues);
+    this.state.isUnsaved = false;
+
+    document.title = getTitle(this.state);
+
+    return true;
   }
 
   /**
-   * Sets the values on all three editors.
+   * Sets the contents of all editor panes.
    *
    * @param {EditorValues} values
-   * @param {warn} warn - Should we warn before overwriting unsaved data?
    */
-  public async setValues(values: Partial<EditorValues>, warn: boolean = true): Promise<boolean> {
+  public async setEditorValues(values: Partial<EditorValues>): Promise<void> {
     const { ElectronFiddle: fiddle } = window;
 
     if (!fiddle) {
       throw new Error('Fiddle not ready');
-    }
-
-    if (this.state.isUnsaved && warn) {
-      this.state.isWarningDialogShowing = true;
-      await when(() => !this.state.isWarningDialogShowing);
-
-      if (!this.state.warningDialogLastResult) {
-        return false;
-      }
     }
 
     for (const name of ALL_EDITORS) {
@@ -66,28 +123,32 @@ export class App {
       const backup = this.state.closedPanels[name];
 
       if (typeof values[name] !== 'undefined') {
-        if (isEditorBackup(backup) && backup.model) {
-          // The editor does not exist, attempt to set it on the backup
-          backup.model.setValue(values[name]!);
+        if (isEditorBackup(backup)) {
+          // The editor does not exist, attempt to set it on the backup.
+          // If there's a model, we'll do it on the model. Else, we'll
+          // set the value.
+
+          if (backup.model) {
+            backup.model.setValue(values[name]!);
+          } else {
+            backup.value = values[name]!;
+          }
         } else if (editor && editor.setValue) {
           // The editor exists, set the value directly
           editor.setValue(values[name]!);
         }
       }
     }
-
-    this.state.isUnsaved = false;
-    this.setupUnsavedOnChangeListener();
-
-    return true;
   }
 
   /**
-   * Gets the values on all three editors.
+   * Retrieves the contents of all editor panes.
    *
    * @returns {EditorValues}
    */
-  public async getValues(options?: PackageJsonOptions): Promise<EditorValues> {
+  public async getEditorValues(
+    options?: PackageJsonOptions,
+  ): Promise<EditorValues> {
     const { ElectronFiddle: fiddle } = window;
 
     if (!fiddle) {
@@ -95,12 +156,14 @@ export class App {
     }
 
     const values: EditorValues = {
+      css: getEditorValue(EditorId.css),
       html: getEditorValue(EditorId.html),
       main: getEditorValue(EditorId.main),
+      preload: getEditorValue(EditorId.preload),
       renderer: getEditorValue(EditorId.renderer),
     };
 
-    if (options && options.include !==  false) {
+    if (options && options.include !== false) {
       values.package = await getPackageJson(this.state, values, options);
     }
 
@@ -112,12 +175,14 @@ export class App {
    * render process.
    */
   public async setup(): Promise<void | Element | React.Component> {
-    this.setupTheme();
+    this.loadTheme();
 
     const React = await import('react');
     const { render } = await import('react-dom');
     const { Dialogs } = await import('./components/dialogs');
-    const { OutputEditorsWrapper } = await import('./components/output-editors-wrapper');
+    const { OutputEditorsWrapper } = await import(
+      './components/output-editors-wrapper'
+    );
     const { Header } = await import('./components/header');
 
     const className = `${process.platform} container`;
@@ -132,31 +197,43 @@ export class App {
     const rendered = render(app, document.getElementById('app'));
 
     this.setupResizeListener();
+    this.setupThemeListeners();
 
     ipcRenderer.send(WEBCONTENTS_READY_FOR_IPC_SIGNAL);
-
-    // Todo: A timer here is terrible. Let's fix this
-    // and ensure we actually do it once Editors have mounted.
-    setTimeout(() => {
-      this.setupUnsavedOnChangeListener();
-    }, 1500);
 
     return rendered;
   }
 
-  /**
-   * If the editor is changed for the first time, we'll
-   * set `isUnsaved` to true. That way, the app can warn you
-   * if you're about to throw things away.
-   */
-  public setupUnsavedOnChangeListener() {
-    Object.keys(window.ElectronFiddle.editors).forEach((key) => {
-      const editor = window.ElectronFiddle.editors[key];
-      const disposable = editor.onDidChangeModelContent(() => {
-        this.state.isUnsaved = true;
-        disposable.dispose();
-      });
-    });
+  public async setupThemeListeners() {
+    const setSystemTheme = (prefersDark: boolean) => {
+      if (prefersDark) {
+        this.state.setTheme(defaultDark.file);
+      } else {
+        this.state.setTheme(defaultLight.file);
+      }
+    };
+
+    // match theme to system when box is ticked
+    reaction(
+      () => this.state.isUsingSystemTheme,
+      () => {
+        if (this.state.isUsingSystemTheme && !!window.matchMedia) {
+          const { matches } = window.matchMedia('(prefers-color-scheme: dark)');
+          setSystemTheme(matches);
+        }
+      },
+    );
+
+    // change theme when system theme changes
+    if (!!window.matchMedia) {
+      window
+        .matchMedia('(prefers-color-scheme: dark)')
+        .addEventListener('change', ({ matches }) => {
+          if (this.state.isUsingSystemTheme) {
+            setSystemTheme(matches);
+          }
+        });
+    }
   }
 
   /**
@@ -164,8 +241,10 @@ export class App {
    *
    * @returns {Promise<void>}
    */
-  public async setupTheme(): Promise<void> {
-    const tag: HTMLStyleElement | null = document.querySelector('style#fiddle-theme');
+  public async loadTheme(): Promise<void> {
+    const tag: HTMLStyleElement | null = document.querySelector(
+      'style#fiddle-theme',
+    );
     const theme = await getTheme(this.state.theme);
 
     if (tag && theme.css) {
@@ -189,6 +268,7 @@ export class App {
 }
 
 window.ElectronFiddle = window.ElectronFiddle || {};
-window.ElectronFiddle.contentChangeListeners = window.ElectronFiddle.contentChangeListeners || [];
+window.ElectronFiddle.contentChangeListeners =
+  window.ElectronFiddle.contentChangeListeners || [];
 window.ElectronFiddle.app = window.ElectronFiddle.app || new App();
 window.ElectronFiddle.app.setup();

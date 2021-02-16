@@ -5,9 +5,7 @@
 
 const { app, BrowserWindow } = require('electron')
 
-let mainWindow = null
-
-app.on('ready', () => {
+app.whenReady().then(() => {
   // We cannot require the screen module until the
   // app is ready
   const { screen } = require('electron')
@@ -17,7 +15,7 @@ app.on('ready', () => {
   const primaryDisplay = screen.getPrimaryDisplay()
   const { width, height } = primaryDisplay.workAreaSize
 
-  mainWindow = new BrowserWindow({
+  const mainWindow = new BrowserWindow({
     width,
     height,
     webPreferences: {

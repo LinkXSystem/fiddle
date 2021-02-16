@@ -9,19 +9,19 @@ jest.mock('fs-extra');
 jest.mock('tmp', () => ({
   setGracefulCleanup: jest.fn(),
   dirSync: jest.fn(() => ({
-    name: '/fake/temp'
-  }))
+    name: '/fake/temp',
+  })),
 }));
 jest.mock('../../src/renderer/templates', () => ({
   getTemplateValues: () => ({
     html: '',
     main: '',
-    renderer: ''
-  })
+    renderer: '',
+  }),
 }));
 
 jest.mock('../../src/utils/import', () => ({
-  fancyImport: async (p: string) => require(p)
+  fancyImport: async (p: string) => require(p),
 }));
 
 describe('FileManager', () => {
@@ -32,7 +32,7 @@ describe('FileManager', () => {
     ipcRendererManager.send = jest.fn();
 
     fm = new FileManager({
-      setWarningDialogTexts: jest.fn()
+      setGenericDialogOptions: jest.fn(),
     } as any);
   });
 
@@ -42,23 +42,33 @@ describe('FileManager', () => {
 
   describe('openFiddle()', () => {
     it('opens a local fiddle', async () => {
-      await fm.openFiddle('/fake/path');
+      const fakePath = '/fake/path';
+      await fm.openFiddle(fakePath);
 
-      expect(window.ElectronFiddle.app.setValues).toHaveBeenCalledWith({});
+      expect(window.ElectronFiddle.app.replaceFiddle).toHaveBeenCalledWith<any>(
+        {},
+        { filePath: fakePath },
+      );
     });
 
-    it('handles an error', async () => {
+    it('writes empty strings if readFile throws an error', async () => {
       const fs = require('fs-extra');
       (fs.readFile as jest.Mock).mockImplementation(() => {
         throw new Error('bwap');
       });
-      await fm.openFiddle('/fake/path');
+      const fakePath = '/fake/path';
+      await fm.openFiddle(fakePath);
 
-      expect(window.ElectronFiddle.app.setValues).toHaveBeenCalledWith({
-        html: '',
-        renderer: '',
-        main: '',
-      });
+      expect(window.ElectronFiddle.app.replaceFiddle).toHaveBeenCalledWith<any>(
+        {
+          html: '',
+          renderer: '',
+          preload: '',
+          main: '',
+          css: '',
+        },
+        { filePath: fakePath },
+      );
     });
 
     it('runs it on IPC event', () => {
@@ -69,20 +79,36 @@ describe('FileManager', () => {
 
     it('does not do anything with incorrect inputs', async () => {
       await fm.openFiddle({} as any);
-      expect(window.ElectronFiddle.app.setValues).toHaveBeenCalledTimes(0);
+      expect(window.ElectronFiddle.app.setEditorValues).toHaveBeenCalledTimes(
+        0,
+      );
+    });
+
+    it('does not do anything if cancelled', async () => {
+      (window.ElectronFiddle.app
+        .setEditorValues as jest.Mock).mockResolvedValueOnce(false);
+      await fm.openFiddle('/fake/path');
     });
   });
 
   describe('saveFiddle()', () => {
-    it('saves as a local fiddle', async () => {
+    it('saves all non-empty files in Fiddle', async () => {
       const fs = require('fs-extra');
 
       await fm.saveFiddle('/fake/path');
 
-      expect(fs.outputFile).toHaveBeenCalledTimes(4);
+      expect(fs.outputFile).toHaveBeenCalledTimes(5);
     });
 
-    it('handles an error', async () => {
+    it('removes a file that is newly empty', async () => {
+      const fs = require('fs-extra');
+
+      await fm.saveFiddle('/fake/path');
+
+      expect(fs.remove).toHaveBeenCalledTimes(1);
+    });
+
+    it('handles an error (output)', async () => {
       const fs = require('fs-extra');
       (fs.outputFile as jest.Mock).mockImplementation(() => {
         throw new Error('bwap');
@@ -90,8 +116,20 @@ describe('FileManager', () => {
 
       await fm.saveFiddle('/fake/path');
 
-      expect(fs.outputFile).toHaveBeenCalledTimes(4);
-      expect(ipcRendererManager.send).toHaveBeenCalledTimes(4);
+      expect(fs.outputFile).toHaveBeenCalledTimes(5);
+      expect(ipcRendererManager.send).toHaveBeenCalledTimes(5);
+    });
+
+    it('handles an error (remove)', async () => {
+      const fs = require('fs-extra');
+      (fs.remove as jest.Mock).mockImplementation(() => {
+        throw new Error('bwap');
+      });
+
+      await fm.saveFiddle('/fake/path');
+
+      expect(fs.remove).toHaveBeenCalledTimes(1);
+      expect(ipcRendererManager.send).toHaveBeenCalledTimes(1);
     });
 
     it('runs saveFiddle (normal) on IPC event', () => {
@@ -109,8 +147,8 @@ describe('FileManager', () => {
     it('asks for a path via IPC if none can  be found', async () => {
       await fm.saveFiddle();
 
-      expect(ipcRendererManager.send).toHaveBeenCalledWith(
-        IpcEvents.FS_SAVE_FIDDLE_DIALOG
+      expect(ipcRendererManager.send).toHaveBeenCalledWith<any>(
+        IpcEvents.FS_SAVE_FIDDLE_DIALOG,
       );
     });
   });
@@ -120,9 +158,12 @@ describe('FileManager', () => {
       const fs = require('fs-extra');
       const tmp = require('tmp');
 
-      await fm.saveToTemp({ includeDependencies: false, includeElectron: false });
+      await fm.saveToTemp({
+        includeDependencies: false,
+        includeElectron: false,
+      });
 
-      expect(fs.outputFile).toHaveBeenCalledTimes(4);
+      expect(fs.outputFile).toHaveBeenCalledTimes(6);
       expect(tmp.setGracefulCleanup).toHaveBeenCalled();
     });
 
@@ -133,7 +174,10 @@ describe('FileManager', () => {
       });
 
       const testFn = async () => {
-        await fm.saveToTemp({ includeDependencies: false, includeElectron: false });
+        await fm.saveToTemp({
+          includeDependencies: false,
+          includeElectron: false,
+        });
       };
       let errored = false;
 
@@ -149,16 +193,17 @@ describe('FileManager', () => {
 
   describe('openTemplate()', () => {
     it('attempts to open a template', async () => {
-      fm.setFiddle = jest.fn();
       await fm.openTemplate('test');
-      expect(fm.setFiddle).toHaveBeenCalledWith({
-        templateName: 'test',
-        values: {
+      expect(window.ElectronFiddle.app.replaceFiddle).toHaveBeenCalledWith<any>(
+        {
           html: '',
           main: '',
-          renderer: ''
-        }
-      });
+          renderer: '',
+        },
+        {
+          templateName: 'test',
+        },
+      );
     });
 
     it('runs openTemplate on IPC event', () => {

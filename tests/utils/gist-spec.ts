@@ -2,8 +2,8 @@ import { idFromUrl, urlFromId } from '../../src/utils/gist';
 
 jest.mock('os', () => ({
   userInfo: () => ({
-    username: 'test-user'
-  })
+    username: 'test-user',
+  }),
 }));
 
 describe('gist', () => {
@@ -30,6 +30,11 @@ describe('gist', () => {
     it('returns a url for an id', () => {
       const result = urlFromId(mockId);
       expect(result).toBe(`https://gist.github.com/${mockId}`);
+    });
+
+    it('returns an empty string if id is undefined', () => {
+      const result = urlFromId();
+      expect(result).toBe('');
     });
   });
 });

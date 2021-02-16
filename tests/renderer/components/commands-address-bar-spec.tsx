@@ -3,8 +3,9 @@ import * as React from 'react';
 
 import { observable } from 'mobx';
 import { AddressBar } from '../../../src/renderer/components/commands-address-bar';
-import { MockState } from '../../mocks/state';
 import { ElectronFiddleMock } from '../../mocks/electron-fiddle';
+import { MockState } from '../../mocks/state';
+import { GistActionState } from '../../../src/interfaces';
 
 jest.mock('../../../src/utils/octokit');
 
@@ -14,11 +15,9 @@ describe('AddressBar component', () => {
 
   class MockStore {
     @observable public gistId: string | null = null;
-    @observable public isWarningDialogShowing: boolean = false;
-    @observable public isConfirmationPromptShowing: boolean = false;
-    public setWarningDialogTexts = jest.fn();
-    public setConfirmationDialogTexts = jest.fn();
-    public setConfirmationPromptTexts = jest.fn();
+    @observable public isWarningDialogShowing = false;
+    @observable public isConfirmationPromptShowing = false;
+    public setGenericDialogOptions = jest.fn();
     public toggleWarningDialog = jest.fn();
   }
 
@@ -70,12 +69,54 @@ describe('AddressBar component', () => {
   it('disables during gist publishing', async () => {
     const wrapper = shallow(<AddressBar appState={store} />);
 
-    wrapper.setProps({appState: {...store, isPublishing: true}}, () => {
-      expect(wrapper.find('fieldset').prop('disabled')).toBe(true);
-    });
+    wrapper.setProps(
+      { appState: { ...store, activeGistAction: GistActionState.publishing } },
+      () => {
+        expect(wrapper.find('fieldset').prop('disabled')).toBe(true);
+      },
+    );
 
-    wrapper.setProps({appState: {...store, isPublishing: false}}, () => {
-      expect(wrapper.find('fieldset').prop('disabled')).toBe(false);
-    });
+    wrapper.setProps(
+      { appState: { ...store, activeGistAction: GistActionState.none } },
+      () => {
+        expect(wrapper.find('fieldset').prop('disabled')).toBe(false);
+      },
+    );
+  });
+
+  it('disables during gist updating', async () => {
+    const wrapper = shallow(<AddressBar appState={store} />);
+
+    wrapper.setProps(
+      { appState: { ...store, activeGistAction: GistActionState.updating } },
+      () => {
+        expect(wrapper.find('fieldset').prop('disabled')).toBe(true);
+      },
+    );
+
+    wrapper.setProps(
+      { appState: { ...store, activeGistAction: GistActionState.none } },
+      () => {
+        expect(wrapper.find('fieldset').prop('disabled')).toBe(false);
+      },
+    );
+  });
+
+  it('disables during gist deleting', async () => {
+    const wrapper = shallow(<AddressBar appState={store} />);
+
+    wrapper.setProps(
+      { appState: { ...store, activeGistAction: GistActionState.deleting } },
+      () => {
+        expect(wrapper.find('fieldset').prop('disabled')).toBe(true);
+      },
+    );
+
+    wrapper.setProps(
+      { appState: { ...store, activeGistAction: GistActionState.none } },
+      () => {
+        expect(wrapper.find('fieldset').prop('disabled')).toBe(false);
+      },
+    );
   });
 });

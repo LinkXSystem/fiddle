@@ -10,20 +10,22 @@ import { updateEditorLayout } from '../../../src/utils/editor-layout';
 import { createMosaicArrangement } from '../../../src/utils/editors-mosaic-arrangement';
 import { getFocusedEditor } from '../../../src/utils/focused-editor';
 
-jest.mock('monaco-loader', () => jest.fn(async () => {
-  return { monaco: true };
-}));
+jest.mock('monaco-loader', () =>
+  jest.fn(async () => {
+    return { monaco: true };
+  }),
+);
 
 jest.mock('../../../src/renderer/components/editor', () => ({
-  Editor: () => 'Editor'
+  Editor: () => 'Editor',
 }));
 
 jest.mock('../../../src/utils/focused-editor', () => ({
-  getFocusedEditor: jest.fn()
+  getFocusedEditor: jest.fn(),
 }));
 
 jest.mock('../../../src/utils/editor-layout', () => ({
-  updateEditorLayout: jest.fn()
+  updateEditorLayout: jest.fn(),
 }));
 
 describe('Editors component', () => {
@@ -34,15 +36,15 @@ describe('Editors component', () => {
     store = {
       isTokenDialogShowing: false,
       isSettingsShowing: false,
-      setWarningDialogTexts: () => ({}),
+      setGenericDialogOptions: () => ({}),
       mosaicArrangement: createMosaicArrangement(ALL_MOSAICS),
-      currentDocsDemoPage: DocsDemoPage.DEFAULT
+      currentDocsDemoPage: DocsDemoPage.DEFAULT,
     };
 
     monaco = {
       editor: {
-        defineTheme: jest.fn()
-      }
+        defineTheme: jest.fn(),
+      },
     };
   });
 
@@ -57,10 +59,10 @@ describe('Editors component', () => {
     const instance: Editors = wrapper.instance() as any;
     const mockAction = {
       isSupported: jest.fn(() => false),
-      run: jest.fn()
+      run: jest.fn(),
     };
     const mockEditor = {
-      getAction: jest.fn(() => mockAction)
+      getAction: jest.fn(() => mockAction),
     };
 
     (getFocusedEditor as any).mockReturnValueOnce(mockEditor);
@@ -84,11 +86,10 @@ describe('Editors component', () => {
     });
 
     it('handles an error', () => {
-      (window.ElectronFiddle.editors.html!.updateOptions as jest.Mock).mockImplementationOnce(
-        () => {
-          throw new Error('Bwap bwap');
-        }
-      );
+      (window.ElectronFiddle.editors.html!
+        .updateOptions as jest.Mock).mockImplementationOnce(() => {
+        throw new Error('Bwap bwap');
+      });
 
       const wrapper = shallow(<Editors appState={store} />);
       const instance: Editors = wrapper.instance() as any;
@@ -101,19 +102,34 @@ describe('Editors component', () => {
       const instance: Editors = wrapper.instance() as any;
 
       expect(instance.toggleEditorOption('wordWrap')).toBe(true);
-      expect(window.ElectronFiddle.editors.html!.updateOptions).toHaveBeenCalledWith(
-        {
-          minimap: { enabled: false },
-          wordWrap: 'off'
-        }
-      );
+      expect(
+        window.ElectronFiddle.editors.html!.updateOptions,
+      ).toHaveBeenCalledWith({
+        minimap: { enabled: false },
+        wordWrap: 'off',
+      });
     });
   });
 
   it('renders a toolbar', () => {
     const wrapper = shallow(<Editors appState={store} />);
     const instance: Editors = wrapper.instance() as any;
-    const toolbar = instance.renderToolbar({ title: TITLE_MAP[EditorId.main] } as any, EditorId.main);
+    const toolbar = instance.renderToolbar(
+      { title: TITLE_MAP[EditorId.main] } as any,
+      EditorId.main,
+    );
+
+    expect(toolbar).toMatchSnapshot();
+  });
+
+  it('does not render toolbar controls if only one editor exists', () => {
+    store.mosaicArrangement = EditorId.main;
+    const wrapper = shallow(<Editors appState={store} />);
+    const instance: Editors = wrapper.instance() as any;
+    const toolbar = instance.renderToolbar(
+      { title: TITLE_MAP[EditorId.main] } as any,
+      EditorId.main,
+    );
 
     expect(toolbar).toMatchSnapshot();
   });
@@ -123,7 +139,7 @@ describe('Editors component', () => {
     const instance: Editors = wrapper.instance() as any;
     (instance as any).disposeLayoutAutorun = jest.fn();
 
-    instance.componentWillUnmount();
+    wrapper.unmount();
 
     expect(instance.disposeLayoutAutorun).toHaveBeenCalledTimes(1);
   });
@@ -138,15 +154,15 @@ describe('Editors component', () => {
   });
 
   describe('IPC commands', () => {
-    it('handles an MONACO_EXECUTE_COMMAND command', () => {
+    it('handles a MONACO_EXECUTE_COMMAND command', () => {
       shallow(<Editors appState={store} />);
 
       const mockAction = {
         isSupported: jest.fn(() => true),
-        run: jest.fn()
+        run: jest.fn(),
       };
       const mockEditor = {
-        getAction: jest.fn(() => mockAction)
+        getAction: jest.fn(() => mockAction),
       };
 
       (getFocusedEditor as any).mockReturnValueOnce(mockEditor);
@@ -162,7 +178,23 @@ describe('Editors component', () => {
 
       ipcRendererManager.emit(IpcEvents.FS_NEW_FIDDLE, null);
       process.nextTick(() => {
-        expect(window.ElectronFiddle.app.fileManager.setFiddle).toHaveBeenCalled();
+        expect(window.ElectronFiddle.app.replaceFiddle).toHaveBeenCalled();
+        done();
+      });
+    });
+
+    it('handles a SELECT_ALL_IN_EDITOR command', (done) => {
+      shallow(<Editors appState={store} />);
+      const mockEditor = {
+        getModel: () => ({
+          getFullModelRange: jest.fn().mockReturnValue('range'),
+        }),
+        setSelection: jest.fn(),
+      };
+      (getFocusedEditor as any).mockReturnValueOnce(mockEditor);
+      ipcRendererManager.emit(IpcEvents.SELECT_ALL_IN_EDITOR, null);
+      process.nextTick(() => {
+        expect(mockEditor.setSelection).toHaveBeenCalledWith('range');
         done();
       });
     });
@@ -172,9 +204,15 @@ describe('Editors component', () => {
 
       ipcRendererManager.emit(IpcEvents.MONACO_TOGGLE_OPTION, null, 'wordWrap');
 
-      expect(window.ElectronFiddle.editors.html!.updateOptions).toHaveBeenCalled();
-      expect(window.ElectronFiddle.editors.renderer!.updateOptions).toHaveBeenCalled();
-      expect(window.ElectronFiddle.editors.main!.updateOptions).toHaveBeenCalled();
+      expect(
+        window.ElectronFiddle.editors.html!.updateOptions,
+      ).toHaveBeenCalled();
+      expect(
+        window.ElectronFiddle.editors.renderer!.updateOptions,
+      ).toHaveBeenCalled();
+      expect(
+        window.ElectronFiddle.editors.main!.updateOptions,
+      ).toHaveBeenCalled();
     });
   });
 
@@ -185,7 +223,7 @@ describe('Editors component', () => {
       shallow(<Editors appState={store} />);
 
       process.nextTick(() => {
-        expect(window.ElectronFiddle.app.monaco).toEqual({ monaco: true});
+        expect(window.ElectronFiddle.app.monaco).toEqual({ monaco: true });
         done();
       });
     });

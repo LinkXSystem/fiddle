@@ -4,17 +4,20 @@ import { RunnerMock } from './runner';
 
 export class AppMock {
   public setupUnsavedOnChangeListener = jest.fn();
-  public setValues = jest.fn();
-  public getValues = jest.fn(() => ({
+  public replaceFiddle = jest.fn();
+  public setEditorValues = jest.fn();
+  public getEditorValues = jest.fn(() => ({
     main: 'main-content',
+    preload: 'preload-content',
     renderer: 'renderer-content',
-    html: 'html-content'
+    html: 'html-content',
+    css: 'css-content',
   }));
 
-  public setupTheme = jest.fn();
+  public loadTheme = jest.fn();
 
   public typeDefDisposable = {
-    dispose: jest.fn()
+    dispose: jest.fn(),
   };
 
   public fileManager = new FileManager();
@@ -24,14 +27,14 @@ export class AppMock {
   public monaco = {
     editor: {
       setTheme: jest.fn(),
-      defineTheme: jest.fn()
+      defineTheme: jest.fn(),
     },
     languages: {
       typescript: {
         javascriptDefaults: {
-          addExtraLib: jest.fn()
-        }
-      }
-    }
+          addExtraLib: jest.fn(),
+        },
+      },
+    },
   };
 }

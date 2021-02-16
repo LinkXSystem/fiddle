@@ -1,11 +1,19 @@
+/**
+ * @jest-environment node
+ */
+
 import { app, dialog } from 'electron';
 
 import { onFirstRunMaybe } from '../../src/main/first-run';
 import { isFirstRun } from '../../src/utils/check-first-run';
 
 jest.mock('../../src/utils/check-first-run', () => ({
-  isFirstRun: jest.fn()
+  isFirstRun: jest.fn(),
 }));
+
+const mockDialogResponse = {
+  response: 1,
+};
 
 describe('first-run', () => {
   const oldDefaultApp = process.defaultApp;
@@ -13,18 +21,22 @@ describe('first-run', () => {
 
   beforeEach(() => {
     Object.defineProperty(process, 'platform', {
-      value: 'darwin'
+      value: 'darwin',
     });
+
+    (dialog.showMessageBox as jest.Mock<any>).mockResolvedValue(
+      mockDialogResponse,
+    );
   });
 
   afterEach(() => {
     Object.defineProperty(process, 'platform', {
-      value: oldPlatform
+      value: oldPlatform,
     });
   });
 
   afterEach(() => {
-    process.defaultApp = oldDefaultApp;
+    (process as any).defaultApp = oldDefaultApp;
   });
 
   describe('onFirstRunMaybe()', () => {
@@ -44,7 +56,7 @@ describe('first-run', () => {
 
     it(`doesn't run unless required (dev mode)`, () => {
       (isFirstRun as jest.Mock).mockReturnValueOnce(true);
-      process.defaultApp = true;
+      (process as any).defaultApp = true;
       (app.isInApplicationsFolder as jest.Mock).mockReturnValue(false);
 
       onFirstRunMaybe();
@@ -54,7 +66,7 @@ describe('first-run', () => {
 
     it(`doesn't run unless required (Windows, Linux)`, () => {
       Object.defineProperty(process, 'platform', {
-        value: 'win32'
+        value: 'win32',
       });
 
       (isFirstRun as jest.Mock).mockReturnValueOnce(true);
@@ -65,21 +77,16 @@ describe('first-run', () => {
       expect(dialog.showMessageBox).toHaveBeenCalledTimes(0);
     });
 
-    it(`moves the app when requested to do so`, () => {
-      (isFirstRun as jest.Mock).mockReturnValueOnce(true);
+    it(`moves the app when requested to do so`, async () => {
+      (isFirstRun as jest.Mock).mockReturnValue(true);
       (app.isInApplicationsFolder as jest.Mock).mockReturnValue(false);
 
-      onFirstRunMaybe();
-
-      const call = (dialog.showMessageBox as jest.Mock<any>).mock.calls[0];
-      const cb = call[1];
-
-      cb(1);
-
+      mockDialogResponse.response = 1;
+      await onFirstRunMaybe();
       expect(app.moveToApplicationsFolder).toHaveBeenCalledTimes(0);
 
-      cb(0);
-
+      mockDialogResponse.response = 0;
+      await onFirstRunMaybe();
       expect(app.moveToApplicationsFolder).toHaveBeenCalledTimes(1);
     });
   });

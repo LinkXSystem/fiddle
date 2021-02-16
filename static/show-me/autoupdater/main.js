@@ -5,7 +5,7 @@
 
 const { app, autoUpdater } = require('electron')
 
-app.on('ready', () => {
+app.whenReady().then(() => {
   const server = 'https://your-deployment-url.com'
   const feed = `${server}/update/${process.platform}/${app.getVersion()}`
 
@@ -23,10 +23,6 @@ app.on('ready', () => {
 
   autoUpdater.on('checking-for-update', () => {
     console.log('The autoUpdater is checking for an update')
-  })
-
-  autoUpdater.on('update-available', () => {
-    console.log('The autoUpdater has found an update!')
   })
 
   autoUpdater.on('update-available', () => {

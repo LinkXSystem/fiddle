@@ -16,10 +16,13 @@ describe('EditorDropdown component', () => {
     store = {
       hideAndBackupMosaic: jest.fn(),
       showMosaic: jest.fn(),
-      closedPanels: {}
+      closedPanels: {},
     };
 
-    (getVisibleMosaics as jest.Mock).mockReturnValue([ EditorId.html, EditorId.renderer ]);
+    (getVisibleMosaics as jest.Mock).mockReturnValue([
+      EditorId.html,
+      EditorId.renderer,
+    ]);
   });
 
   it('renders', () => {
@@ -45,5 +48,16 @@ describe('EditorDropdown component', () => {
     dropdown.onItemClick({ currentTarget: { id: EditorId.main } } as any);
     expect(store.hideAndBackupMosaic).toHaveBeenCalledTimes(1);
     expect(store.showMosaic).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables hide button if only one editor open', () => {
+    store.mosaicArrangement = 'html';
+    (getVisibleMosaics as jest.Mock).mockReturnValue([EditorId.html]);
+
+    const wrapper = mount(<EditorDropdown appState={store} />);
+    const instance = wrapper.instance() as EditorDropdown;
+    const menu = instance.renderMenuItems();
+
+    expect(menu).toMatchSnapshot();
   });
 });

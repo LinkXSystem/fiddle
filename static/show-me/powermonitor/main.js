@@ -5,7 +5,7 @@
 
 const { app } = require('electron')
 
-app.on('ready', () => {
+app.whenReady().then(() => {
   // We cannot require the "ready" module until
   // the app is ready
   const { powerMonitor } = require('electron')
@@ -19,10 +19,10 @@ app.on('ready', () => {
   })
 
   powerMonitor.on('on-ac', () => {
-    console.log(`We're on AC power`)
+    console.log('We\'re on AC power')
   })
 
   powerMonitor.on('on-battery', () => {
-    console.log(`We're on battery power`)
+    console.log('We\'re on battery power')
   })
 })

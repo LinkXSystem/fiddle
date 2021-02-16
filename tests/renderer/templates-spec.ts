@@ -3,10 +3,10 @@ import { getTemplateValues } from '../../src/renderer/templates';
 jest.mock('fs-extra');
 jest.mock('path');
 jest.mock('../../src/renderer/constants', () => ({
-  USER_DATA_PATH: 'user/data/'
+  USER_DATA_PATH: 'user/data/',
 }));
 jest.mock('../../src/utils/import', () => ({
-  fancyImport: async (p: string) => require(p)
+  fancyImport: async (p: string) => require(p),
 }));
 
 describe('templates', () => {
@@ -44,8 +44,8 @@ describe('templates', () => {
       fs.existsSync.mockReturnValue(true);
 
       await getTemplateValues('test');
-      expect(fs.existsSync).toHaveBeenCalledTimes(3);
-      expect(fs.readdirSync).toHaveBeenCalledTimes(3);
+      expect(fs.existsSync).toHaveBeenCalledTimes(5);
+      expect(fs.readdirSync).toHaveBeenCalledTimes(5);
     });
   });
 });

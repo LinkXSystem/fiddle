@@ -26,6 +26,7 @@ class MockAutoUpdater extends EventEmitter {
 
 export class MockMenu {
   public static readonly setApplicationMenu = jest.fn();
+  public static readonly sendActionToFirstResponder = jest.fn();
   public static readonly getApplicationMenu = jest.fn();
   public static readonly buildFromTemplate = jest.fn();
   public readonly popup = jest.fn();
@@ -51,7 +52,11 @@ export class MockMenuItem {
   public visible: boolean;
   public label: string;
   public type: string;
-  public click: (menuItem: Electron.MenuItem, browserWindow: Electron.BrowserWindow, event: Electron.Event) => void;
+  public click: (
+    menuItem: Electron.MenuItem,
+    browserWindow: Electron.BrowserWindow | undefined,
+    event: KeyboardEvent,
+  ) => void;
 
   constructor(options: Electron.MenuItemConstructorOptions) {
     this.enabled = !!options.enabled;
@@ -80,15 +85,7 @@ function CreateWindowStub() {
     setTitle: jest.fn(),
     reload: jest.fn(),
     isDestroyed: jest.fn(() => false),
-    setTouchBar: jest.fn()
   };
-}
-
-class MockTouchBar {
-  public static TouchBarButton = jest.fn();
-  public static TouchBarScrubber = jest.fn();
-  public static TouchBarSpacer = jest.fn();
-  public static TouchBarLabel = jest.fn();
 }
 
 const app = {
@@ -104,7 +101,7 @@ const app = {
   getAppMetrics: jest.fn().mockReturnValue({ metrics: 123 }),
   getGPUFeatureStatus: jest.fn(),
   getJumpListSettings: jest.fn(() => ({
-    removedItems: []
+    removedItems: [],
   })),
   getLoginItemSettings: jest.fn(),
   getPath: (name: string) => {
@@ -116,10 +113,12 @@ const app = {
   quit: jest.fn(),
   relaunch: jest.fn(),
   setJumpList: jest.fn(),
-  setName: jest.fn(),
   requestSingleInstanceLock: jest.fn(),
   on: jest.fn(),
-  once: jest.fn()
+  off: jest.fn(),
+  once: jest.fn(),
+  whenReady: () => Promise.resolve(),
+  removeAllListeners: jest.fn(),
 };
 
 const mainWindowStub = CreateWindowStub();
@@ -131,19 +130,19 @@ const session = {
     clearCache: jest.fn((cb) => cb()),
     clearStorageData: jest.fn((_opts, cb) => cb()),
     cookies: {
-      get: jest.fn()
-    }
-  }
+      get: jest.fn(),
+    },
+  },
 };
 
 const shell = {
   openExternal: jest.fn(),
-  openItem: jest.fn(),
-  showItemInFolder: jest.fn()
+  openPath: jest.fn(),
+  showItemInFolder: jest.fn(),
 };
 
 const systemPreferences = {
-  getUserDefault: jest.fn()
+  getUserDefault: jest.fn(),
 };
 
 const electronMock = {
@@ -154,18 +153,22 @@ const electronMock = {
     readText: jest.fn(),
     readImage: jest.fn(),
     writeText: jest.fn(),
-    writeImage: jest.fn()
+    writeImage: jest.fn(),
+  },
+  crashReporter: {
+    start: jest.fn(),
   },
   dialog: {
-    showOpenDialog: jest.fn(),
-    showMessageBox: jest.fn()
+    showOpenDialog: jest.fn().mockResolvedValue({}),
+    showOpenDialogSync: jest.fn().mockReturnValue(['path']),
+    showMessageBox: jest.fn().mockResolvedValue({}),
   },
   ipcMain: new MockIPC(),
   ipcRenderer: new MockIPC(),
   nativeImage: {
     createFromPath: (...args: Array<any>) => new MockNativeImage(...args),
     createFromBuffer: jest.fn(),
-    createFromDataURL: jest.fn(function() {
+    createFromDataURL: jest.fn(function () {
       return { toPNG: jest.fn(() => 'content') };
     }),
     createEmpty: jest.fn(),
@@ -189,7 +192,7 @@ const electronMock = {
     interceptStringProtocol: jest.fn(),
     interceptBufferProtocol: jest.fn(),
     interceptHttpProtocol: jest.fn(),
-    uninterceptProtocol: jest.fn()
+    uninterceptProtocol: jest.fn(),
   },
   remote: {
     app,
@@ -200,11 +203,12 @@ const electronMock = {
     Menu: MockMenu,
     MenuItem: MockMenuItem,
     process: {
-      argv: [ '/Applications/Electron Fiddle.app/Contents/MacOS/electron-fiddle' ]
+      argv: [
+        '/Applications/Electron Fiddle.app/Contents/MacOS/electron-fiddle',
+      ],
     },
     shell,
     require: jest.fn(),
-    TouchBar: MockTouchBar,
     systemPreferences,
   },
   require: jest.fn(),
@@ -212,8 +216,7 @@ const electronMock = {
   session,
   shell,
   systemPreferences,
-  TouchBar: MockTouchBar,
-  webContents: MockWebContents
+  webContents: MockWebContents,
 };
 
 electronMock.BrowserWindow.getAllWindows.mockReturnValue([]);

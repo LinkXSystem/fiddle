@@ -1,6 +1,14 @@
+/**
+ * @jest-environment node
+ */
+
+import { IpcEvents } from '../../src/ipc-events';
 import { createContextMenu } from '../../src/main/context-menu';
+import { ipcMainManager } from '../../src/main/ipc';
 import {
-  browserWindows, getMainWindowOptions, getOrCreateMainWindow
+  browserWindows,
+  getMainWindowOptions,
+  getOrCreateMainWindow,
 } from '../../src/main/windows';
 import { overridePlatform, resetPlatform } from '../utils';
 
@@ -25,8 +33,11 @@ describe('windows', () => {
       backgroundColor: '#1d2427',
       webPreferences: {
         webviewTag: false,
-        nodeIntegration: true
-      }
+        enableRemoteModule: true,
+        nodeIntegration: true,
+        nodeIntegrationInWorker: true,
+        contextIsolation: false,
+      },
     };
 
     afterEach(() => {
@@ -45,7 +56,10 @@ describe('windows', () => {
 
     it('returns the expected output on macOS', () => {
       overridePlatform('darwin');
-      expect(getMainWindowOptions()).toEqual({ ...expectedBase, titleBarStyle: 'hidden' });
+      expect(getMainWindowOptions()).toEqual({
+        ...expectedBase,
+        titleBarStyle: 'hidden',
+      });
     });
   });
 
@@ -59,37 +73,43 @@ describe('windows', () => {
     it('updates "browserWindows" on "close"', () => {
       getOrCreateMainWindow();
       expect(browserWindows[0]).toBeTruthy();
-      getOrCreateMainWindow().emit('closed');
+      (getOrCreateMainWindow() as any).emit('closed');
       expect(browserWindows.length).toBe(0);
     });
 
     it('creates the context menu on "dom-ready"', () => {
       getOrCreateMainWindow();
       expect(browserWindows[0]).toBeTruthy();
-      getOrCreateMainWindow().webContents.emit('dom-ready');
+      (getOrCreateMainWindow().webContents as any).emit('dom-ready');
       expect(createContextMenu).toHaveBeenCalled();
     });
 
     it('prevents new-window"', () => {
       const e = {
-        preventDefault: jest.fn()
+        preventDefault: jest.fn(),
       };
 
       getOrCreateMainWindow();
       expect(browserWindows[0]).toBeTruthy();
-      getOrCreateMainWindow().webContents.emit('new-window', e);
+      (getOrCreateMainWindow().webContents as any).emit('new-window', e);
       expect(e.preventDefault).toHaveBeenCalled();
     });
 
     it('prevents will-navigate"', () => {
       const e = {
-        preventDefault: jest.fn()
+        preventDefault: jest.fn(),
       };
 
       getOrCreateMainWindow();
       expect(browserWindows[0]).toBeTruthy();
-      getOrCreateMainWindow().webContents.emit('will-navigate', e);
+      (getOrCreateMainWindow().webContents as any).emit('will-navigate', e);
       expect(e.preventDefault).toHaveBeenCalled();
+    });
+
+    it('shows the window on IPC event', () => {
+      const w = getOrCreateMainWindow();
+      ipcMainManager.emit(IpcEvents.SHOW_INACTIVE);
+      expect(w.showInactive).toHaveBeenCalled();
     });
   });
 });
